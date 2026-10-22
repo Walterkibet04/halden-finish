@@ -1,0 +1,29 @@
+artifacts = ["/app"]
+
+[task]
+name = "afterquery/image-pipeline-recovery"
+
+[metadata]
+author_name = "Walter Kibet"
+author_email = "kibetwalter726@gmail.com"
+difficulty_explanation = "Rebuilding an undocumented image-finishing chain from before/after examples is what colour scientists, retouching-pipeline engineers and film-emulation developers do when a studio loses its tooling or a pipeline has to be migrated without visible change. The stage list is not given, only the kinds of operation. The reference chain has an image-wide auto-exposure whose gain comes from a statistic of the whole image (geometric-mean luma, clamped), a highlight bloom that spreads light across the frame, a tone curve in linear light, a vignette, a local-contrast filter, a saturation stage, coordinate-hashed grain with luminance-dependent amplitude, and an ordered-dither quantise. Several things defeat a per-pixel fit: the exposure gain differs per image, so the same input colour maps differently in different pictures; the bloom and local-contrast kernels are non-local and their radii scale with image size, so they must be isolated with point and edge targets at more than one size; and the image-wide statistic has to be identified exactly (an arithmetic-mean version fails 8 of 10 held-out images). The stages do not commute, so a right set in the wrong order is off by tens of levels, and grain that is only statistically similar fails thousands of pixels. The data is synthetic: 14 purpose-built test charts and 26 procedurally generated scenes of different sizes (smooth noise, shapes, flat blocks) rather than camera photographs, and the 10 held-out images are generated the same way. A close fit to the 40 pairs with the wrong structure still fails on the held-out images."
+solution_explanation = "Use the charts to isolate stages: the flat fields at five levels show the image-wide exposure gain and the grain amplitude, the point charts at two sizes give the bloom kernel and its tint, the edge charts at two sizes give the local-contrast kernel and show that its radius scales with image size, the ramps give the tone curve, and the colour patches and hue sweep give the saturation stage and its working space. Per-image gains solved from the scene pairs are regressed against candidate whole-image statistics until one matches exactly. The grain field is tabulated from the large flat chart, which covers every held-out coordinate, or the generator is identified. Stage order is settled by testing orderings on the scenes. The reference solution implements the chain in float32: geometric-mean auto-exposure in linear light, luma-based highlight bloom, tone curve with roll-off and black lift, radial vignette, Gaussian unsharp-mask local contrast on luma in sRGB-encoded values with sigma proportional to the longer side, saturation around luma with a hard clip, hash-based grain, and Bayer 8x8 ordered-dither quantise."
+verification_explanation = "The verifier container copies each of 10 sealed held-out source images (sizes from 640x960 up to 1536x1024) to a fresh randomly named path, runs the submitted /app/finish on it as an unprivileged user (the sealed references live in a root-only /tests directory and the output path is checked to be a regular file in its own directory), kills any leftover processes of that user, then compares the decoded output with the sealed reference. Each output must be an RGB image with the same size as its input whose maximum absolute per-channel difference from the reference is at most 1 on every pixel. All ten must pass for a reward of 1. The reference chain run in float64 agrees with the float32 reference to within 1 level on every held-out and published image, so a correct implementation can meet the bound without bit-matching float32. Measured wrong attempts all fail the held-out set: a constant exposure gain (10 of 10 images fail), an arithmetic-mean statistic with a refitted target (8 of 10), no bloom (10 of 10), local-contrast radius fixed in pixels (9 of 10), saturation before local contrast (10 of 10), no grain (10 of 10), and the identity function (off by 50 to 87 levels). The held-out images are never present in the agent's image."
+category = "Media"
+subcategory = "Image processing"
+tags = ["image-processing", "reverse-engineering", "colour-science", "numpy"]
+expert_time_estimate_hours = 16
+relevant_experience = "Creative designer with 3 years of experience."
+
+[verifier]
+timeout_sec = 900.0
+environment_mode = "separate"
+
+[agent]
+timeout_sec = 14400.0
+
+[environment]
+build_timeout_sec = 900.0
+cpus = 2
+memory_mb = 4096
+storage_mb = 10240
